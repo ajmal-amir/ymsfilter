@@ -1,1 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Amazon YMS — Yard Management Tool</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --org: #FF9900;  --org-d: #E68A00;
+      --blu: #146EB4;  --blu-d: #0f5a96;
+      --bg: #0D0F0F;   --bg-panel: #141618;
+      --bg-card: #1A1D1F; --bg-in: #111314;
+      --bdr: #2A2D30;  --bdr-l: #3A3D42;
+      --txt: #E8EAE8;  --txt-d: #7A8080; --txt-m: #4A5050;
+      --ok: #00C853;   --err: #FF3D3D;   --warn: #FFB300;
+      --fd: 'Rajdhani', sans-serif;
+      --fb: 'Barlow', sans-serif;
+      --fm: 'IBM Plex Mono', monospace;
+    }
+    html,body{min-height:100vh;background:var(--bg);color:var(--txt);font-family:var(--fb);font-size:15px;line-height:1.6;overflow-x:hidden;}
+    body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--bdr) 1px,transparent 1px),linear-gradient(90deg,var(--bdr) 1px,transparent 1px);background-size:40px 40px;opacity:.22;pointer-events:none;z-index:0;}
+    .stripe{position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--org),var(--org-d),var(--blu));z-index:100;}
 
+    /* Header */
+    header{position:relative;z-index:10;display:flex;align-items:center;gap:20px;padding:22px 36px 18px;border-bottom:1px solid var(--bdr);background:rgba(13,15,15,.97);backdrop-filter:blur(10px);}
+    .logo{display:flex;flex-direction:column;}
+    .logo-wm{font-family:var(--fd);font-size:25px;font-weight:700;color:var(--txt);letter-spacing:1px;line-height:1;}
+    .logo svg{width:70px;height:12px;margin-top:2px;display:block;}
+    .hdiv{width:1px;height:40px;background:var(--bdr-l);flex-shrink:0;}
+    .htxt h1{font-family:var(--fd);font-size:18px;font-weight:600;color:var(--txt);letter-spacing:.5px;}
+    .htxt p{font-size:11px;color:var(--txt-d);font-family:var(--fm);margin-top:1px;}
+    .htxt span{color:var(--org);}
+
+    /* Tabs */
+    .tabs{position:relative;z-index:10;display:flex;border-bottom:1px solid var(--bdr);background:var(--bg-panel);}
+    .tab{padding:13px 26px;font-family:var(--fd);font-size:14px;font-weight:600;letter-spacing:.5px;color:var(--txt-d);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;user-select:none;}
+    .tab:hover{color:var(--txt);}
+    .tab.active{color:var(--org);border-bottom-color:var(--org);}
+
+    /* Main */
+    main{position:relative;z-index:1;max-width:920px;margin:0 auto;padding:32px 20px 90px;}
+    .tab-content{display:none;}
+    .tab-content.active{display:block;animation:fadeUp .5s ease both;}
+
+    /* Cards */
+    .card{background:var(--bg-card);border:1px solid var(--bdr);border-radius:4px;overflow:hidden;margin-bottom:12px;transition:border-color .2s;}
+    .card:hover{border-color:var(--bdr-l);}
+    .card-hdr{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--bdr);background:rgba(255,255,255,.018);}
+    .badge{font-family:var(--fm);font-size:10px;font-weight:500;background:var(--org);color:#0D0F0F;padding:2px 8px;border-radius:2px;letter-spacing:1px;flex-shrink:0;}
+    .badge.blue{background:var(--blu);color:#fff;}
+    .ctitle{font-family:var(--fd);font-size:14px;font-weight:600;letter-spacing:.5px;}
+    .cbody{padding:16px 18px;}
+
+    /* Drop zone */
+    .drop-zone{border:2px dashed var(--bdr-l);border-radius:4px;padding:34px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg-in);position:relative;}
+    .drop-zone:hover,.drop-zone.drag{border-color:var(--org);background:rgba(255,153,0,.04);}
+    .drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+    .dicon{font-size:26px;margin-bottom:7px;display:block;}
+    .dtitle{font-family:var(--fd);font-size:14px;font-weight:600;color:var(--txt);margin-bottom:2px;}
+    .dsub{font-size:11px;color:var(--txt-d);font-family:var(--fm);}
+    .file-loaded{display:none;align-items:center;gap:10px;padding:10px 14px;background:rgba(0,200,83,.06);border:1px solid rgba(0,200,83,.2);border-radius:4px;margin-top:10px;}
+    .file-loaded.show{display:flex;}
+    .fl-name{font-family:var(--fm);font-size:12px;color:var(--ok);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .fl-rows{font-size:11px;color:var(--txt-d);font-family:var(--fm);flex-shrink:0;}
+
+    /* Info box */
+    .info-box{background:var(--bg-in);border:1px solid var(--bdr);border-radius:4px;padding:11px 14px;margin-bottom:12px;}
+    .info-lbl{font-family:var(--fm);font-size:10px;letter-spacing:1.5px;color:var(--org);margin-bottom:7px;text-transform:uppercase;}
+    .rule-row{display:flex;gap:10px;padding:3px 0;border-bottom:1px solid var(--bdr);font-size:12px;}
+    .rule-row:last-child{border-bottom:none;}
+    .rule-col{color:var(--txt-d);font-family:var(--fm);font-size:11px;width:145px;flex-shrink:0;}
+    .tag{display:inline-block;background:rgba(255,153,0,.12);color:var(--org);font-family:var(--fm);font-size:10px;padding:1px 5px;border-radius:2px;margin:0 2px;}
+
+    /* Buttons */
+    .btn{width:100%;padding:13px 20px;font-family:var(--fd);font-size:15px;font-weight:700;letter-spacing:.8px;border:none;border-radius:4px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;}
+    .btn-org{background:var(--org);color:#0D0F0F;}
+    .btn-org:hover:not(:disabled){background:var(--org-d);transform:translateY(-1px);box-shadow:0 5px 18px rgba(255,153,0,.25);}
+    .btn-blu{background:var(--blu);color:#fff;}
+    .btn-blu:hover:not(:disabled){background:var(--blu-d);transform:translateY(-1px);box-shadow:0 5px 18px rgba(20,110,180,.25);}
+    .btn-out{background:transparent;color:var(--blu);border:2px solid var(--blu);}
+    .btn-out:hover:not(:disabled){background:var(--blu);color:#fff;}
+    .btn:disabled{background:#222;color:var(--txt-m);cursor:not-allowed;transform:none;box-shadow:none;border-color:#222;}
+
+    /* Stats */
+    .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;}
+    .stat-card{background:var(--bg-card);border:1px solid var(--bdr);border-radius:4px;padding:13px 14px;text-align:center;}
+    .stat-card.hi{border-color:var(--org);}
+    .stat-num{font-family:var(--fd);font-size:26px;font-weight:700;line-height:1;}
+    .stat-card.hi .stat-num{color:var(--org);}
+    .stat-card.lo .stat-num{color:var(--txt-d);}
+    .stat-lbl{font-family:var(--fm);font-size:10px;letter-spacing:1px;color:var(--txt-d);margin-top:4px;text-transform:uppercase;}
+
+    /* Table */
+    .table-wrap{background:var(--bg-card);border:1px solid var(--bdr);border-radius:4px;overflow:hidden;margin-bottom:10px;}
+    .table-bar{display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid var(--bdr);background:var(--bg-in);}
+    .search{flex:1;background:var(--bg-card);border:1px solid var(--bdr);border-radius:3px;padding:6px 10px;color:var(--txt);font-family:var(--fm);font-size:11px;outline:none;transition:border-color .2s;}
+    .search:focus{border-color:var(--org);}
+    .search::placeholder{color:var(--txt-m);}
+    .rcnt{font-family:var(--fm);font-size:10px;color:var(--txt-d);white-space:nowrap;}
+    .tscroll{overflow-x:auto;max-height:360px;overflow-y:auto;}
+    table{width:100%;border-collapse:collapse;font-size:11px;font-family:var(--fm);}
+    thead th{background:var(--bg-in);color:var(--txt-d);font-weight:500;padding:8px 11px;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap;position:sticky;top:0;z-index:2;cursor:pointer;user-select:none;transition:color .15s;}
+    thead th:hover{color:var(--org);}
+    thead th.sa::after{content:' ↑';color:var(--org);}
+    thead th.sd::after{content:' ↓';color:var(--org);}
+    tbody tr{border-bottom:1px solid rgba(42,45,48,.5);transition:background .1s;}
+    tbody tr:nth-child(even){background:rgba(255,255,255,.012);}
+    tbody tr:hover{background:rgba(255,153,0,.04);}
+    tbody td{padding:7px 11px;color:var(--txt);white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;}
+    .td-t{color:var(--org);}
+    .td-e{color:var(--txt-m);font-style:italic;}
+
+    /* Error */
+    .err{display:none;background:rgba(255,61,61,.08);border:1px solid rgba(255,61,61,.3);border-radius:4px;padding:9px 13px;margin-bottom:10px;font-size:12px;color:var(--err);font-family:var(--fm);}
+    .err.show{display:block;}
+
+    /* ── REPORT ─────────────────────────────────── */
+    .cfg-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;}
+    .cfg-item label{display:block;font-family:var(--fm);font-size:10px;letter-spacing:1px;color:var(--txt-d);margin-bottom:4px;text-transform:uppercase;}
+    .cfg-item input{width:100%;background:var(--bg-in);border:1px solid var(--bdr);border-radius:3px;padding:8px 10px;color:var(--txt);font-family:var(--fm);font-size:13px;outline:none;transition:border-color .2s;}
+    .cfg-item input:focus{border-color:var(--blu);}
+
+    #rpt-out{display:none;}
+    #rpt-out.show{display:block;animation:fadeUp .4s ease both;}
+
+    .rcard{background:var(--bg-card);border:1px solid var(--bdr);border-radius:4px;overflow:hidden;margin-bottom:10px;}
+    .rcard-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 15px;border-bottom:1px solid var(--bdr);background:rgba(255,255,255,.018);}
+    .rcard-title{font-family:var(--fd);font-size:12px;font-weight:600;letter-spacing:.8px;color:var(--txt-d);text-transform:uppercase;}
+    .rcard-body{padding:14px 16px;}
+
+    .rm-grid{display:grid;gap:9px;margin-bottom:9px;}
+    .rm-grid.c2{grid-template-columns:1fr 1fr;}
+    .rm-grid.c3{grid-template-columns:1fr 1fr 1fr;}
+    .rm-grid.c4{grid-template-columns:1fr 1fr 1fr 1fr;}
+    .rm-box{background:var(--bg-in);border:1px solid var(--bdr);border-radius:4px;padding:11px 13px;}
+    .rm-num{font-family:var(--fd);font-size:24px;font-weight:700;color:var(--txt);line-height:1;}
+    .rm-num.org{color:var(--org);}
+    .rm-num.blu{color:var(--blu);}
+    .rm-num.grn{color:var(--ok);}
+    .rm-num.red{color:var(--err);}
+    .rm-num.wrn{color:var(--warn);}
+    .rm-lbl{font-family:var(--fm);font-size:10px;color:var(--txt-d);margin-top:4px;letter-spacing:.3px;}
+    .rm-sub{font-size:10px;color:var(--txt-m);margin-top:2px;}
+
+    .yc-bar{height:7px;background:var(--bg-in);border-radius:4px;overflow:hidden;border:1px solid var(--bdr);margin-top:6px;}
+    .yc-fill{height:100%;border-radius:4px;transition:width .7s ease;}
+    .yc-fill.org{background:linear-gradient(90deg,var(--org),var(--org-d));}
+    .yc-fill.blu{background:linear-gradient(90deg,var(--blu),var(--blu-d));}
+
+    /* Report text box */
+    .rtext{background:var(--bg-in);border:1px solid var(--bdr-l);border-radius:4px;padding:16px;font-family:var(--fm);font-size:12px;color:var(--txt);line-height:2;white-space:pre;overflow-x:auto;margin-bottom:10px;}
+    .copy-row{display:flex;gap:8px;}
+    .cbtn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:transparent;border:1px solid var(--bdr-l);border-radius:3px;color:var(--txt-d);font-family:var(--fm);font-size:11px;cursor:pointer;transition:all .15s;}
+    .cbtn:hover{border-color:var(--org);color:var(--org);}
+    .cbtn.ok{border-color:var(--ok);color:var(--ok);}
+
+    /* Status */
+    .sbar{position:fixed;bottom:0;left:0;right:0;height:30px;background:var(--bg-panel);border-top:1px solid var(--bdr);display:flex;align-items:center;padding:0 18px;gap:10px;z-index:100;font-family:var(--fm);font-size:10px;}
+    .sdot{width:6px;height:6px;border-radius:50%;background:var(--txt-m);flex-shrink:0;transition:background .3s;}
+    .sdot.work{background:var(--org);animation:pulse 1s infinite;}
+    .sdot.done{background:var(--ok);}
+    .sdot.fail{background:var(--err);}
+    .smsg{color:var(--txt-d);}
+    .scred{margin-left:auto;color:var(--txt-m);}
+    .scred span{color:var(--org);}
+
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+    @media(max-width:640px){
+      header{padding:14px 12px;gap:12px;}
+      main{padding:18px 10px 80px;}
+      .cfg-grid{grid-template-columns:1fr 1fr;}
+      .rm-grid.c3,.rm-grid.c4{grid-template-columns:1fr 1fr;}
+      .stats-row{grid-template-columns:1fr 1fr;}
+    }
+  </style>
+</head>
+<body>
+<div class="stripe"></div>
+
+<header>
+  <div class="logo">
+    <span class="logo-wm">amazon</span>
+    <svg viewBox="0 0 70 12" fill="none"><path d="M3 8.5Q35 18 67 8.5" stroke="#FF9900" stroke-width="2.2" stroke-linecap="round" fill="none"/><polygon points="65,5 70,8.5 65,12" fill="#FF9900"/></svg>
+  </div>
+  <div class="hdiv"></div>
+  <div class="htxt">
+    <h1>YMS Yard Management Tool</h1>
+    <p>Trailer Management &nbsp;|&nbsp; Operations &nbsp;|&nbsp; <span>Developed by Amir</span></p>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('filter')">🔍 &nbsp;Dwelling Filter</div>
+  <div class="tab" onclick="switchTab('report')">📋 &nbsp;Shift Report</div>
+</div>
+
+<main>
+
+<!-- ═══════════════ TAB 1: FILTER ═══════════════ -->
+<div class="tab-content active" id="tab-filter">
+
+  <div class="card">
+    <div class="card-hdr"><span class="badge">STEP 01</span><span class="ctitle">Load CSV File</span></div>
+    <div class="cbody">
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" accept=".csv" />
+        <span class="dicon">📂</span>
+        <div class="dtitle">Drop your yard CSV here</div>
+        <div class="dsub">or click to browse &nbsp;·&nbsp; .csv files only</div>
+      </div>
+      <div class="file-loaded" id="fileLoaded">
+        <span>✅</span>
+        <span class="fl-name" id="fileName">—</span>
+        <span class="fl-rows" id="fileRows">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-hdr"><span class="badge">STEP 02</span><span class="ctitle">Apply Filter &amp; Export</span></div>
+    <div class="cbody">
+      <div class="info-box">
+        <div class="info-lbl">Filter Conditions — both must be true</div>
+        <div class="rule-row"><span class="rule-col">Load Identifier(s)</span><span>Must be <span class="tag">empty</span></span></div>
+        <div class="rule-row"><span class="rule-col">Notes</span><span>Must be <span class="tag">blank</span> <span class="tag">OBEMPTY</span> <span class="tag">OB EMPTY</span></span></div>
+        <div class="rule-row"><span class="rule-col">Sort Order</span><span>Time in Yard — <span class="tag">longest first</span></span></div>
+      </div>
+      <div class="err" id="filterErr"></div>
+      <button class="btn btn-org" id="btnRun" disabled>Run Filter &nbsp;→&nbsp; Save CSV</button>
+    </div>
+  </div>
+
+  <div id="filter-results" style="display:none">
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-num" id="sTot">—</div><div class="stat-lbl">Total Rows</div></div>
+      <div class="stat-card hi"><div class="stat-num" id="sKept">—</div><div class="stat-lbl">Rows Exported</div></div>
+      <div class="stat-card lo"><div class="stat-num" id="sRem">—</div><div class="stat-lbl">Rows Removed</div></div>
+    </div>
+    <div class="table-wrap">
+      <div class="table-bar">
+        <input class="search" id="searchBox" placeholder="Search filtered results…" />
+        <span class="rcnt" id="rCnt"></span>
+      </div>
+      <div class="tscroll"><table><thead id="tHead"></thead><tbody id="tBody"></tbody></table></div>
+    </div>
+    <button class="btn btn-out" id="btnExport" style="margin-top:4px">⬇ &nbsp;Download Filtered CSV</button>
+  </div>
+
+</div><!-- /tab-filter -->
+
+<!-- ═══════════════ TAB 2: REPORT ═══════════════ -->
+<div class="tab-content" id="tab-report">
+
+  <div class="card">
+    <div class="card-hdr"><span class="badge blue">CONFIG</span><span class="ctitle">Yard Settings &amp; Equipment</span></div>
+    <div class="cbody">
+      <div class="info-box" style="margin-bottom:14px">
+        <div class="info-lbl">How it works</div>
+        <div style="font-size:12px;color:var(--txt-d);font-family:var(--fm);line-height:1.7">
+          Load your CSV in the Dwelling Filter tab first, then return here and click Generate.<br/>
+          <span style="color:var(--org)">Onsite</span> = trailers in DD/PS/HL locations &nbsp;·&nbsp;
+          <span style="color:var(--blu)">Offsite</span> = trailers in OSY locations &nbsp;·&nbsp;
+          <span style="color:var(--txt)">On Door</span> = DD locations &nbsp;·&nbsp;
+          <span style="color:var(--ok)">Home Lane</span> = HL locations
+        </div>
+      </div>
+      <div class="cfg-grid">
+        <div class="cfg-item"><label>Total Yard Capacity</label><input type="number" id="cYC" value="910" /></div>
+        <div class="cfg-item"><label>Total Off-Dock Spots (PS)</label><input type="number" id="cOD" value="310" /></div>
+        <div class="cfg-item"><label>Hostlers Total</label><input type="number" id="cHT" value="18" /></div>
+        <div class="cfg-item"><label>Hostlers Available</label><input type="number" id="cHA" value="16" /></div>
+        <div class="cfg-item"><label>Day Cabs Total</label><input type="number" id="cDT" value="22" /></div>
+        <div class="cfg-item"><label>Day Cabs Available</label><input type="number" id="cDA" value="19" /></div>
+      </div>
+      <div class="err" id="reportErr"></div>
+      <button class="btn btn-blu" id="btnReport" disabled>📋 &nbsp;Generate Shift Report</button>
+    </div>
+  </div>
+
+  <div id="rpt-out">
+
+    <!-- YC Utilisation -->
+    <div class="rcard">
+      <div class="rcard-hdr"><span class="rcard-title">⬡ &nbsp;Yard Capacity (YC)</span></div>
+      <div class="rcard-body">
+        <div class="rm-grid c2">
+          <div class="rm-box">
+            <div class="rm-num org" id="rYCin">—</div>
+            <div class="rm-lbl">% IN — Onsite / Total Capacity</div>
+            <div class="yc-bar"><div class="yc-fill org" id="barIn" style="width:0%"></div></div>
+          </div>
+          <div class="rm-box">
+            <div class="rm-num blu" id="rYCoff">—</div>
+            <div class="rm-lbl">% OFF — PS Spots Used / Total PS</div>
+            <div class="yc-bar"><div class="yc-fill blu" id="barOff" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tags -->
+    <div class="rcard">
+      <div class="rcard-hdr"><span class="rcard-title">🏷 &nbsp;Tagged Trailers</span></div>
+      <div class="rcard-body">
+        <div class="rm-grid c2">
+          <div class="rm-box"><div class="rm-num wrn" id="rYellow">—</div><div class="rm-lbl">Yellow Tagged Trailers</div></div>
+          <div class="rm-box"><div class="rm-num red" id="rRed">—</div><div class="rm-lbl">Red Tagged Trailers</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KAMP -->
+    <div class="rcard">
+      <div class="rcard-hdr"><span class="rcard-title">🏕 &nbsp;KAMP Empty in Yard</span></div>
+      <div class="rcard-body">
+        <div class="rm-grid c3">
+          <div class="rm-box"><div class="rm-num org" id="rKampT">—</div><div class="rm-lbl">Total Onsite</div></div>
+          <div class="rm-box"><div class="rm-num blu" id="rKampD">—</div><div class="rm-lbl">Already on Door (DD)</div></div>
+          <div class="rm-box"><div class="rm-num" id="rKampO">—</div><div class="rm-lbl">Off Door</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AZNG -->
+    <div class="rcard">
+      <div class="rcard-hdr"><span class="rcard-title">🚛 &nbsp;Empty AZNG</span></div>
+      <div class="rcard-body">
+        <div class="rm-grid c3">
+          <div class="rm-box"><div class="rm-num org" id="rAzngO">—</div><div class="rm-lbl">Onsite (OBEMPTY)</div></div>
+          <div class="rm-box"><div class="rm-num wrn" id="rAzngT">—</div><div class="rm-lbl">Tagged Out</div></div>
+          <div class="rm-box"><div class="rm-num blu" id="rAzngH">—</div><div class="rm-lbl">In Home Lane (HL)</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AZNU -->
+    <div class="rcard">
+      <div class="rcard-hdr"><span class="rcard-title">🚛 &nbsp;Empty AZNU</span></div>
+      <div class="rcard-body">
+        <div class="rm-grid c4">
+          <div class="rm-box"><div class="rm-num org" id="rAznuO">—</div><div class="rm-lbl">Onsite</div></div>
+          <div class="rm-box"><div class="rm-num wrn" id="rAznuT">—</div><div class="rm-lbl">Tagged Out</div></div>
+          <div class="rm-box"><div class="rm-num blu" id="rAznuH">—</div><div class="rm-lbl">In Home Lane (HL)</div></div>
+          <div class="rm-box"><div class="rm-num grn" id="rAznuS">—</div><div class="rm-lbl">On Way to Site (OSY)</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Totes -->
+    <div class="rcard">
+      <div class="rcard-hdr"><span class="rcard-title">📦 &nbsp;Totes (NITOTES)</span></div>
+      <div class="rcard-body">
+        <div class="rm-grid c3">
+          <div class="rm-box"><div class="rm-num org" id="rTotO">—</div><div class="rm-lbl">Onsite</div></div>
+          <div class="rm-box"><div class="rm-num blu" id="rTotD">—</div><div class="rm-lbl">On Door (DD)</div></div>
+          <div class="rm-box"><div class="rm-num" id="rTotH">—</div><div class="rm-lbl">In Home Lane (HL)</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPP -->
+    <div class="rcard">
+      <div class="rcard-hdr"><span class="rcard-title">📦 &nbsp;UPP (NIUPP)</span></div>
+      <div class="rcard-body">
+        <div class="rm-grid c4">
+          <div class="rm-box"><div class="rm-num org" id="rUppO">—</div><div class="rm-lbl">Onsite</div></div>
+          <div class="rm-box"><div class="rm-num blu" id="rUppD">—</div><div class="rm-lbl">On Door (DD)</div></div>
+          <div class="rm-box"><div class="rm-num" id="rUppH">—</div><div class="rm-lbl">In Home Lane (HL)</div></div>
+          <div class="rm-box"><div class="rm-num grn" id="rUppS">—</div><div class="rm-lbl">On Way to Site (OSY)</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loaded -->
+    <div class="rcard">
+      <div class="rcard-hdr"><span class="rcard-title">🔄 &nbsp;Loaded Trailers (Onsite)</span></div>
+      <div class="rcard-body">
+        <div class="rm-grid c2">
+          <div class="rm-box"><div class="rm-num grn" id="rIB">—</div><div class="rm-lbl">Inbound Loaded</div></div>
+          <div class="rm-box"><div class="rm-num blu" id="rOB">—</div><div class="rm-lbl">Outbound Loaded</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Equipment -->
+    <div class="rcard">
+      <div class="rcard-hdr"><span class="rcard-title">🚜 &nbsp;Equipment</span></div>
+      <div class="rcard-body">
+        <div class="rm-grid c2">
+          <div class="rm-box"><div class="rm-num grn" id="rHost">—</div><div class="rm-lbl">Hostlers Available</div></div>
+          <div class="rm-box"><div class="rm-num blu" id="rCabs">—</div><div class="rm-lbl">Day Cabs Available</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Copy-paste text -->
+    <div class="rcard">
+      <div class="rcard-hdr">
+        <span class="rcard-title">📋 &nbsp;Shift Report — Copy &amp; Paste</span>
+      </div>
+      <div class="rcard-body">
+        <div class="rtext" id="reportTxt"></div>
+        <div class="copy-row">
+          <button class="cbtn" id="copyBtn" onclick="copyRpt()">📋 &nbsp;Copy to Clipboard</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /rpt-out -->
+</div><!-- /tab-report -->
+</main>
+
+<div class="sbar">
+  <div class="sdot" id="sdot"></div>
+  <span class="smsg" id="smsg">Ready — load a CSV file to begin</span>
+  <span class="scred">Amazon YMS &nbsp;·&nbsp; <span>Developed by Amir</span></span>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let rawData=[], filteredData=[], displayData=[], columns=[];
+let csvOut='yard_filtered.csv', sortCol=null, sortAsc=false;
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const $=id=>document.getElementById(id);
+const norm=v=>(v||'').toString().replace(/\n/g,' ').trim().toUpperCase();
+const isDD =loc=>/^DD/i.test((loc||'').trim());   // Dock door = on door
+const isHL =loc=>/^HL/i.test((loc||'').trim());   // Home lane
+const isPS =loc=>/^PS/i.test((loc||'').trim());   // Parking spot
+const isOS =loc=>/^OS/i.test((loc||'').trim());   // Offsite yard
+const isOnsite=loc=>!isOS(loc)&&(loc||'').trim()!==''; // DD + PS + HL
+function setStatus(s,m){$('sdot').className='sdot '+s;$('smsg').textContent=m;}
+function showErr(id,m){const e=$(id);e.textContent='⚠  '+m;e.classList.add('show');}
+function hideErr(id){$(id).classList.remove('show');}
+function timeToMins(t){
+  if(!t||!t.trim())return 0;
+  const d=t.match(/(\d+)\s*day/),h=t.match(/(\d+)\s*hour/),m=t.match(/(\d+)\s*minute/);
+  return(d?+d[1]:0)*1440+(h?+h[1]:0)*60+(m?+m[1]:0);
+}
+
+// ── Tab switch ─────────────────────────────────────────────────────────────
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',(t==='filter'&&i===0)||(t==='report'&&i===1)));
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  $('tab-'+t).classList.add('active');
+}
+
+// ── Drag & drop ────────────────────────────────────────────────────────────
+const dz=$('dropZone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0]);});
+$('fileInput').addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0]);});
+
+// ── CSV parser ─────────────────────────────────────────────────────────────
+function parseCSV(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2)return{columns:[],rows:[]};
+  function pl(line){
+    const f=[];let cur='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}
+      else if(c===','&&!inQ){f.push(cur);cur='';}
+      else cur+=c;
+    }
+    f.push(cur);return f;
+  }
+  const cols=pl(lines[0]).map(c=>c.trim());
+  const rows=[];
+  for(let i=1;i<lines.length;i++){
+    const v=pl(lines[i]);
+    if(v.every(x=>!x.trim()))continue;
+    const o={};cols.forEach((c,ci)=>{o[c]=v[ci]!==undefined?v[ci]:'';});
+    rows.push(o);
+  }
+  return{columns:cols,rows};
+}
+
+// ── Load file ──────────────────────────────────────────────────────────────
+function loadFile(file){
+  if(!file.name.endsWith('.csv')){showErr('filterErr','Please select a .csv file.');return;}
+  csvOut=file.name.replace('.csv','')+'_filtered.csv';
+  setStatus('work',`Loading ${file.name}…`);
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const p=parseCSV(e.target.result);
+      if(!p.rows.length){showErr('filterErr','File appears to be empty.');return;}
+      rawData=p.rows;columns=p.columns;
+      const req=['Notes','Load identifier(s)','Time in Yard','Owner (Operator)','Visit Reason','Location'];
+      const miss=req.filter(r=>!columns.includes(r));
+      if(miss.length){showErr('filterErr','Missing columns: '+miss.join(', '));return;}
+      hideErr('filterErr');hideErr('reportErr');
+      $('fileName').textContent=file.name;
+      $('fileRows').textContent=`${rawData.length.toLocaleString()} rows loaded`;
+      $('fileLoaded').classList.add('show');
+      $('btnRun').disabled=false;
+      $('btnReport').disabled=false;
+      $('filter-results').style.display='none';
+      $('rpt-out').classList.remove('show');
+      setStatus('done',`Loaded ${rawData.length.toLocaleString()} rows · ${columns.length} columns · ${file.name}`);
+    }catch(err){showErr('filterErr','Parse error: '+err.message);}
+  };
+  reader.readAsText(file);
+}
+
+// ── FILTER ─────────────────────────────────────────────────────────────────
+$('btnRun').addEventListener('click',()=>{
+  setStatus('work','Applying filter…');
+  $('btnRun').disabled=true;
+  $('btnRun').textContent='Processing…';
+  setTimeout(()=>{
+    try{
+      let res=rawData.filter(r=>{
+        const notes=norm(r['Notes']);
+        const loadId=(r['Load identifier(s)']||'').toString().trim();
+        const loadOk=loadId===''||loadId.toLowerCase()==='nan';
+        const notesOk=['','NAN','OBEMPTY','OB EMPTY'].includes(notes);
+        return loadOk&&notesOk;
+      });
+      res.sort((a,b)=>timeToMins(b['Time in Yard'])-timeToMins(a['Time in Yard']));
+      filteredData=res;displayData=res;
+      $('sTot').textContent=rawData.length.toLocaleString();
+      $('sKept').textContent=filteredData.length.toLocaleString();
+      $('sRem').textContent=(rawData.length-filteredData.length).toLocaleString();
+      $('filter-results').style.display='block';
+      renderTable(displayData);$('searchBox').value='';
+      hideErr('filterErr');
+      setStatus('done',`Complete — ${filteredData.length.toLocaleString()} rows kept · ${(rawData.length-filteredData.length).toLocaleString()} removed`);
+    }catch(err){showErr('filterErr','Error: '+err.message);setStatus('fail','Error');}
+    $('btnRun').disabled=false;
+    $('btnRun').innerHTML='Run Filter &nbsp;→&nbsp; Save CSV';
+  },50);
+});
+
+// ── Table render ───────────────────────────────────────────────────────────
+function renderTable(data){
+  const hr=document.createElement('tr');
+  columns.forEach(col=>{
+    const th=document.createElement('th');th.textContent=col;
+    if(col===sortCol)th.classList.add(sortAsc?'sa':'sd');
+    th.addEventListener('click',()=>sortBy(col));hr.appendChild(th);
+  });
+  $('tHead').innerHTML='';$('tHead').appendChild(hr);
+  $('tBody').innerHTML='';
+  data.slice(0,500).forEach(row=>{
+    const tr=document.createElement('tr');
+    columns.forEach(col=>{
+      const td=document.createElement('td'),val=row[col]||'';
+      td.textContent=val||'—';td.title=val;
+      if(!val||val.trim()===''||val.toLowerCase()==='nan'){td.classList.add('td-e');td.textContent='—';}
+      if(col==='Time in Yard'&&val)td.classList.add('td-t');
+      tr.appendChild(td);
+    });
+    $('tBody').appendChild(tr);
+  });
+  $('rCnt').textContent=data.length>500?`Showing 500 of ${data.length.toLocaleString()}`:`${data.length.toLocaleString()} rows`;
+}
+
+function sortBy(col){
+  if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}
+  displayData=[...displayData].sort((a,b)=>{
+    const va=(a[col]||'').toString(),vb=(b[col]||'').toString();
+    if(col==='Time in Yard')return sortAsc?timeToMins(va)-timeToMins(vb):timeToMins(vb)-timeToMins(va);
+    return sortAsc?va.localeCompare(vb):vb.localeCompare(va);
+  });
+  renderTable(displayData);
+}
+
+$('searchBox').addEventListener('input',()=>{
+  const t=$('searchBox').value.trim().toLowerCase();
+  displayData=t?filteredData.filter(r=>columns.some(c=>(r[c]||'').toString().toLowerCase().includes(t))):filteredData;
+  renderTable(displayData);
+});
+
+$('btnExport').addEventListener('click',()=>{
+  if(!filteredData.length)return;
+  function esc(v){v=String(v??'');return(v.includes(',')||v.includes('"')||v.includes('\n'))?'"'+v.replace(/"/g,'""')+'"':v;}
+  const csv=[[...columns].map(esc).join(','),...filteredData.map(r=>columns.map(c=>esc(r[c])).join(','))].join('\r\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=csvOut;document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setStatus('done',`Exported ${filteredData.length.toLocaleString()} rows → ${csvOut}`);
+});
+
+// ── SHIFT REPORT ───────────────────────────────────────────────────────────
+$('btnReport').addEventListener('click',()=>{
+  if(!rawData.length){showErr('reportErr','Load a CSV file first (use the Dwelling Filter tab).');return;}
+  hideErr('reportErr');
+  setStatus('work','Generating shift report…');
+
+  setTimeout(()=>{
+    // Config
+    const yardCap=parseInt($('cYC').value)||910;
+    const odCap  =parseInt($('cOD').value)||310;
+    const hTotal =parseInt($('cHT').value)||18;
+    const hAvail =parseInt($('cHA').value)||16;
+    const cTotal =parseInt($('cDT').value)||22;
+    const cAvail =parseInt($('cDA').value)||19;
+
+    // Normalise all rows + exclude tractors
+    const rows=rawData
+      .map(r=>({
+        ...r,
+        _n:  norm(r['Notes']),
+        _ow: norm(r['Owner (Operator)']),
+        _li: (r['Load identifier(s)']||'').toString().trim(),
+        _vr: norm(r['Visit Reason']),
+        _ty: norm(r['Type']||''),
+        _lo: (r['Location']||'').toString().trim().toUpperCase(),
+      }))
+      .filter(r=>!r._ty.includes('TRACTOR'));
+
+    const onsite  =r=>isOnsite(r._lo);
+    const hasLoad =r=>r._li!==''&&r._li.toLowerCase()!=='nan';
+    const isOBE   =r=>r._n==='OBEMPTY'||r._n.startsWith('OBEMPTY')||r._n==='OB EMPTY';
+    const isTagged=r=>r._n.includes('YELLOW TAGGED')||r._n.includes('RED TAGGED');
+
+    // YC
+    const onsiteAll = rows.filter(r=>onsite(r));
+    const psOnsite  = rows.filter(r=>isPS(r._lo));
+    const pctIn  = ((onsiteAll.length/yardCap)*100).toFixed(1);
+    const pctOff = ((psOnsite.length/odCap)*100).toFixed(1);
+
+    // Tags (all onsite)
+    const yellow = rows.filter(r=>onsite(r)&&r._n.includes('YELLOW TAGGED')).length;
+    const red    = rows.filter(r=>onsite(r)&&r._n.includes('RED TAGGED')).length;
+
+    // KAMP — empty = NIEMPTY note, onsite only
+    const kampAll  = rows.filter(r=>r._ow==='KAMP'&&r._n.startsWith('NIEMPTY')&&onsite(r));
+    const kampDoor = kampAll.filter(r=>isDD(r._lo)).length;
+
+    // AZNG — empty = OBEMPTY, onsite only (OSY excluded)
+    const azngEmpty  = rows.filter(r=>r._ow==='AZNG'&&isOBE(r)&&onsite(r));
+    const azngTagged = azngEmpty.filter(r=>isTagged(r)).length;
+    const azngHL     = azngEmpty.filter(r=>isHL(r._lo)).length;
+
+    // AZNU — empty = OBEMPTY
+    const aznuEmpty   = rows.filter(r=>r._ow==='AZNU'&&isOBE(r));
+    const aznuOnsite  = aznuEmpty.filter(r=>onsite(r));
+    const aznuTagged  = aznuOnsite.filter(r=>isTagged(r)).length;
+    const aznuHL      = aznuOnsite.filter(r=>isHL(r._lo)).length;
+    const aznuOffsite = aznuEmpty.filter(r=>isOS(r._lo)).length; // on way to site
+
+    // Totes — NITOTES / NITOTE
+    const totesAll   = rows.filter(r=>r._n.startsWith('NITOTES')||r._n==='NITOTES'||r._n.startsWith('NITOTE'));
+    const totesOn    = totesAll.filter(r=>onsite(r));
+    const totesDoor  = totesOn.filter(r=>isDD(r._lo)).length;
+    const totesHL    = totesOn.filter(r=>isHL(r._lo)).length;
+
+    // UPP — NIUPP
+    const uppAll    = rows.filter(r=>r._n.startsWith('NIUPP'));
+    const uppOn     = uppAll.filter(r=>onsite(r));
+    const uppDoor   = uppOn.filter(r=>isDD(r._lo)).length;
+    const uppHL     = uppOn.filter(r=>isHL(r._lo)).length;
+    const uppOff    = uppAll.filter(r=>isOS(r._lo)).length; // on way to site
+
+    // Loaded — onsite only
+    const ibLoaded = rows.filter(r=>r._vr==='INBOUND'&&hasLoad(r)&&onsite(r)).length;
+    const obLoaded = rows.filter(r=>r._vr==='OUTBOUND'&&hasLoad(r)&&onsite(r)).length;
+
+    // ── Update dashboard ──────────────────────────────────────
+    function set(id,val,cls){const el=$(id);el.textContent=val;el.className='rm-num'+(cls?' '+cls:'');}
+    set('rYCin',  pctIn+'%',  'org');
+    set('rYCoff', pctOff+'%', 'blu');
+    $('barIn').style.width  = Math.min(parseFloat(pctIn),100)+'%';
+    $('barOff').style.width = Math.min(parseFloat(pctOff),100)+'%';
+
+    set('rYellow', yellow, 'wrn');
+    set('rRed',    red,    'red');
+
+    set('rKampT', kampAll.length, 'org');
+    set('rKampD', kampDoor,        'blu');
+    set('rKampO', kampAll.length-kampDoor, '');
+
+    set('rAzngO', azngEmpty.length, 'org');
+    set('rAzngT', azngTagged,        'wrn');
+    set('rAzngH', azngHL,            'blu');
+
+    set('rAznuO', aznuOnsite.length, 'org');
+    set('rAznuT', aznuTagged,         'wrn');
+    set('rAznuH', aznuHL,             'blu');
+    set('rAznuS', aznuOffsite,        'grn');
+
+    set('rTotO', totesOn.length, 'org');
+    set('rTotD', totesDoor,       'blu');
+    set('rTotH', totesHL,         '');
+
+    set('rUppO', uppOn.length, 'org');
+    set('rUppD', uppDoor,       'blu');
+    set('rUppH', uppHL,         '');
+    set('rUppS', uppOff,        'grn');
+
+    set('rIB', ibLoaded, 'grn');
+    set('rOB', obLoaded, 'blu');
+
+    set('rHost', `${hAvail}/${hTotal}`, 'grn');
+    set('rCabs', `${cAvail}/${cTotal}`, 'blu');
+
+    // ── Report text ────────────────────────────────────────────
+    const txt =
+`YC- ${pctIn}% In / ${pctOff}% Off
+Yellow Tagged Trailers - ${yellow}
+Red Tagged Trailers - ${red}
+Kamp empty in yard  ${kampAll.length}  -  ( ${kampDoor} already on door)
+Empty AZNG-  ${azngEmpty.length} onsite,  ${azngTagged} are tagged out ,  ${azngHL} in the HL
+Empty AZNU-  ${aznuOnsite.length} onsite,  ${aznuTagged} tagged ,  ${aznuHL} in HL ,  ${aznuOffsite} on the way to site
+Totes-  ${totesOn.length} onsite,  ${totesDoor} on door,  ${totesHL} in the HL
+UPP-  ${uppOn.length} onsite,  ${uppDoor} on door,  ${uppHL} in the HL ,  ${uppOff} on the way to site
+Inbound loaded -  ${ibLoaded} onsite
+Outbound loaded-  ${obLoaded} onsite
+Hostlers ${hAvail}/${hTotal} available.  ${cAvail}/${cTotal} Day cabs available`;
+
+    $('reportTxt').textContent=txt;
+    $('rpt-out').classList.add('show');
+    setStatus('done','Shift report generated successfully');
+  },60);
+});
+
+// ── Copy report ────────────────────────────────────────────────────────────
+function copyRpt(){
+  navigator.clipboard.writeText($('reportTxt').textContent).then(()=>{
+    const b=$('copyBtn');
+    b.textContent='✅  Copied!';b.classList.add('ok');
+    setTimeout(()=>{b.textContent='📋 \u00a0Copy to Clipboard';b.classList.remove('ok');},2200);
+  });
+}
+</script>
+</body>
+</html>
